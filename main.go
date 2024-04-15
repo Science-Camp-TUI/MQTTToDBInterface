@@ -22,7 +22,9 @@ func main() {
 	opts.SetTLSConfig(sslConfig)
 
 	mqttMessageHandler := func(client MQTT.Client, msg MQTT.Message) {
-		fmt.Println(msg)
+		receivedData := decodeMessage(msg.Payload())
+		fmt.Println(receivedData)
+		//os.Exit(-1)
 	}
 
 	opts.SetDefaultPublishHandler(mqttMessageHandler)
