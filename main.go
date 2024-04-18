@@ -23,7 +23,8 @@ func main() {
 
 	mqttMessageHandler := func(client MQTT.Client, msg MQTT.Message) {
 		receivedData := decodeMessage(msg.Payload())
-		fmt.Println(receivedData)
+		fmt.Println(receivedData.toJSON())
+		writeData(receivedData)
 		//os.Exit(-1)
 	}
 
