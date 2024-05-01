@@ -1,53 +1,119 @@
 package main
 
 import (
-	"crypto/tls"
 	"fmt"
-	MQTT "github.com/eclipse/paho.mqtt.golang"
+	"math/rand"
+	"net"
 	"os"
-	"os/signal"
+	"sync"
+	"time"
 )
 
 func main() {
-	mqttConfig := readConfig("config.py")
-
-	sslConfig := &tls.Config{
-		InsecureSkipVerify: true,
+	if len(os.Args) < 2 {
+		fmt.Println("start|listen|check|end")
+		os.Exit(1)
 	}
 
-	opts := MQTT.NewClientOptions().AddBroker(fmt.Sprintf("ssl://%s:%d", mqttConfig.mqttHost, mqttConfig.mqttPort))
-	opts.SetClientID("BirdDBReader")
-	opts.SetUsername(mqttConfig.mqttUsername)
-	opts.SetPassword(mqttConfig.mqttPassword)
-	opts.SetTLSConfig(sslConfig)
-
-	mqttMessageHandler := func(client MQTT.Client, msg MQTT.Message) {
-		receivedData := decodeMessage(msg.Payload())
-		fmt.Println(receivedData.toJSON())
-		writeData(receivedData)
-		//os.Exit(-1)
+	switch os.Args[1] {
+	case "start":
+		start()
+	case "listen":
+		listen()
+	case "check":
+		check()
+	case "stop":
+		stop()
+	default:
+		fmt.Println("Usage: myprogram <start|listen|end>")
+		os.Exit(1)
 	}
+}
 
-	opts.SetDefaultPublishHandler(mqttMessageHandler)
-
-	// Create a new MQTT client
-	client := MQTT.NewClient(opts)
-	// Connect to the MQTT broker
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+func listen() {
+	fmt.Println("Listening...")
+	c, err := net.Dial("tcp", "127.0.0.1:8000")
+	if err != nil {
+		panic(err)
 	}
-
-	topic := mqttConfig.mqttTopics[0]
-	qos := 2
-	if token := client.Subscribe(topic, byte(qos), nil); token.Wait() && token.Error() != nil {
-		panic(token.Error())
-	}
-
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-
-	// Infinite loop to receive MQTT messages
+	defer c.Close()
+	c.Write([]byte{1})
+	buf := make([]byte, 1024)
 	for {
-		// Add your message handling logic here
+		n, err := c.Read(buf[:])
+		if err != nil {
+			return
+		}
+		println("Client got:", string(buf[0:n]))
 	}
+}
+func check() bool {
+	fmt.Println("Checking...")
+	c, err := net.Dial("tcp", "127.0.0.1:8000")
+	if err != nil {
+		fmt.Println("Service not running")
+		return false
+	}
+	defer c.Close()
+	c.Write([]byte{2})
+	buf := make([]byte, 1)
+	c.Read(buf)
+	if buf[0] != 1 {
+		fmt.Println("Service answered incorrectly")
+		return false
+	}
+	fmt.Println("Service is running")
+	return true
+}
+func stop() {
+	fmt.Println("Stopping...")
+	c, err := net.Dial("tcp", "127.0.0.1:8000")
+	if err != nil {
+		panic(err)
+	}
+	defer c.Close()
+	c.Write([]byte{3})
+}
+
+func start() {
+	fmt.Println("Starting...")
+	l, err := net.Listen("tcp", "127.0.0.1:8000")
+	if err != nil {
+		panic(err)
+	}
+	var m sync.Mutex
+	var cons []*net.Conn
+	go core(&m, &cons)
+	for {
+		fd, err := l.Accept()
+		if err != nil {
+			panic(err)
+		}
+		buf := make([]byte, 1)
+		_, err = fd.Read(buf)
+		if err != nil {
+			return
+		}
+		switch buf[0] {
+		case 1:
+			fmt.Println("Add Listen")
+			m.Lock()
+			cons = append(cons, &fd)
+			m.Unlock()
+		case 2:
+			fmt.Println("Got Checked")
+			fd.Write([]byte{1})
+		case 3:
+			fmt.Println("Exit by command")
+			os.Exit(1)
+		default:
+			fmt.Println("Unknown command")
+		}
+
+	}
+}
+
+func actionLoop() string {
+	time.Sleep(100 * time.Millisecond)
+	return fmt.Sprintf("%d\n", rand.Intn(1000))
 }

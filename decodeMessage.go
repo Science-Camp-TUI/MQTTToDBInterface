@@ -6,9 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"regexp"
-	"strconv"
-	"strings"
 	"time"
 )
 
@@ -18,6 +15,31 @@ type observationData struct {
 	Latitude    float64   `json:"latitude"`
 	Longitude   float64   `json:"longitude"`
 	Timestamp   time.Time `json:"timestamp"`
+}
+type mqttMessage struct {
+	BaseStations []struct {
+		BsEui      int64   `json:"bsEui"`
+		EqSnr      float64 `json:"eqSnr"`
+		Mode       string  `json:"mode"`
+		Profile    string  `json:"profile"`
+		Rssi       float64 `json:"rssi"`
+		RxTime     int64   `json:"rxTime"`
+		Snr        float64 `json:"snr"`
+		Subpackets struct {
+			Frequency []float64 `json:"frequency"`
+			Rssi      []float64 `json:"rssi"`
+			Snr       []float64 `json:"snr"`
+		} `json:"subpackets"`
+	} `json:"baseStations"`
+	Cnt         int         `json:"cnt"`
+	Components  interface{} `json:"components"`
+	Data        []int       `json:"data"`
+	DlAck       bool        `json:"dlAck"`
+	DlOpen      bool        `json:"dlOpen"`
+	Format      int         `json:"format"`
+	Meta        interface{} `json:"meta"`
+	ResponseExp bool        `json:"responseExp"`
+	TypeEui     int         `json:"typeEui"`
 }
 
 func (o *observationData) toJSON() string {
@@ -29,15 +51,17 @@ func (o *observationData) toJSON() string {
 }
 
 func decodeMessage(payload []byte) *observationData {
-	messageString := string(payload)
-	dataPattern := regexp.MustCompile("\"data\":\\[([0-9,]*)\\]")
-	dataString := dataPattern.FindStringSubmatch(messageString)
-	data := strings.Split(dataString[1], ",")
+	var receivedData mqttMessage
+	err := json.Unmarshal(payload, &receivedData)
+	if err != nil {
+		panic(err)
+	}
+
+	data := receivedData.Data
 	var dataBytes []byte
 
 	for _, value := range data {
-		intByte, _ := strconv.Atoi(value)
-		dataBytes = append(dataBytes, byte(intByte))
+		dataBytes = append(dataBytes, byte(value))
 	}
 
 	var bytesAsHexString []string
