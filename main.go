@@ -9,15 +9,20 @@ import (
 	"time"
 )
 
+const internalCommunicationChannel = "127.0.0.1:20202"
+
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("start|listen|check|end")
+		fmt.Println("start <My\\Path\\To\\Config>|listen|check|end")
 		os.Exit(1)
 	}
 
 	switch os.Args[1] {
 	case "start":
-		start()
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: MQTTToDB <start My\\Path\\To\\Config>")
+		}
+		start(os.Args[2])
 	case "listen":
 		listen()
 	case "check":
@@ -25,14 +30,14 @@ func main() {
 	case "stop":
 		stop()
 	default:
-		fmt.Println("Usage: myprogram <start|listen|end>")
+		fmt.Println("Usage: MQTTToDB <start <My\\Path\\To\\Config>|listen|check|end>")
 		os.Exit(1)
 	}
 }
 
 func listen() {
 	fmt.Println("Listening...")
-	c, err := net.Dial("tcp", "127.0.0.1:8000")
+	c, err := net.Dial("tcp", internalCommunicationChannel)
 	if err != nil {
 		panic(err)
 	}
@@ -49,7 +54,7 @@ func listen() {
 }
 func check() bool {
 	fmt.Println("Checking...")
-	c, err := net.Dial("tcp", "127.0.0.1:8000")
+	c, err := net.Dial("tcp", internalCommunicationChannel)
 	if err != nil {
 		fmt.Println("Service not running")
 		return false
@@ -67,7 +72,7 @@ func check() bool {
 }
 func stop() {
 	fmt.Println("Stopping...")
-	c, err := net.Dial("tcp", "127.0.0.1:8000")
+	c, err := net.Dial("tcp", internalCommunicationChannel)
 	if err != nil {
 		panic(err)
 	}
@@ -75,15 +80,15 @@ func stop() {
 	c.Write([]byte{3})
 }
 
-func start() {
+func start(configPath string) {
 	fmt.Println("Starting...")
-	l, err := net.Listen("tcp", "127.0.0.1:8000")
+	l, err := net.Listen("tcp", internalCommunicationChannel)
 	if err != nil {
 		panic(err)
 	}
 	var m sync.Mutex
 	var cons []*net.Conn
-	go core(&m, &cons)
+	go core(&m, &cons, configPath)
 	for {
 		fd, err := l.Accept()
 		if err != nil {

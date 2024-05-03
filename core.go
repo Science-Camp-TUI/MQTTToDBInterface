@@ -10,8 +10,8 @@ import (
 	"sync"
 )
 
-func core(m *sync.Mutex, cons *[]*net.Conn) {
-	configData := readConfig("config.json")
+func core(m *sync.Mutex, cons *[]*net.Conn, configPath string) {
+	configData := readConfig(configPath)
 
 	sslConfig := &tls.Config{
 		InsecureSkipVerify: true,
