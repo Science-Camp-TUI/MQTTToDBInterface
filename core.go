@@ -50,9 +50,8 @@ func core(m *sync.Mutex, cons *[]*net.Conn) {
 		panic(token.Error())
 	}
 
-	topic := configData.MqttTopics[0]
 	qos := 2
-	if token := client.Subscribe(topic, byte(qos), mqttMessageHandler); token.Wait() && token.Error() != nil {
+	if token := client.Subscribe(configData.MqttTopic, byte(qos), mqttMessageHandler); token.Wait() && token.Error() != nil {
 		panic(token.Error())
 	}
 
