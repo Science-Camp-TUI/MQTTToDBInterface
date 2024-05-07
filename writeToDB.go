@@ -17,12 +17,12 @@ func writeData(data *observationData, configData *config) {
 	writeAPI := client.WriteAPIBlocking(org, bucket)
 
 	tags := map[string]string{
-		"birdId": fmt.Sprintf("%d", data.BirdClassId),
+		"birdId":    fmt.Sprintf("%d", data.BirdClassId),
+		"latitude":  fmt.Sprintf("%f", data.Latitude),
+		"longitude": fmt.Sprintf("%f", data.Longitude),
 	}
 	fields := map[string]interface{}{
 		"confidence": data.Confidence,
-		"latitude":   data.Latitude,
-		"longitude":  data.Longitude,
 	}
 
 	dataPoint := write.NewPoint("BirdObservation", tags, fields, data.Timestamp)
