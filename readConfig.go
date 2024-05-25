@@ -6,15 +6,18 @@ import (
 )
 
 type config struct {
-	MqttHost       string `json:"mqtt_host"`
-	MqttPort       int    `json:"mqtt_port"`
-	MqttUsername   string `json:"mqtt_username"`
-	MqttPassword   string `json:"mqtt_password"`
-	MqttTopic      string `json:"mqtt_topic"`
-	InfluxDBUrl    string `json:"influxDBUrl"`
-	InfluxDBToken  string `json:"influxDBToken"`
-	InfluxDBOrga   string `json:"influxDBOrga"`
-	InfluxDBBucket string `json:"influxDBBucket"`
+	MqttHost     string `json:"mqtt_host"`
+	MqttProtocol string `json:"mqtt_protocol"`
+	MqttPort     int    `json:"mqtt_port"`
+	MqttUsername string `json:"mqtt_username"`
+	MqttPassword string `json:"mqtt_password"`
+	MqttTopic    []struct {
+		Topic  string `json:"topic"`
+		Bucket string `json:"bucket"`
+	} `json:"mqtt_topic"`
+	InfluxDBUrl   string `json:"influxDBUrl"`
+	InfluxDBToken string `json:"influxDBToken"`
+	InfluxDBOrga  string `json:"influxDBOrga"`
 }
 
 func readConfig(path string) *config {

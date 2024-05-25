@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -45,16 +44,18 @@ type mqttMessage struct {
 func (o *observationData) toJSON() string {
 	jsonData, err := json.Marshal(*o)
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
+		return ""
 	}
 	return string(jsonData)
 }
 
-func decodeMessage(payload []byte) *observationData {
+func decodeMessage(payload []byte, topic string) *observationData {
 	var receivedData mqttMessage
 	err := json.Unmarshal(payload, &receivedData)
 	if err != nil {
-		panic(err)
+		fmt.Println("Unmarshal error", err)
+		return nil
 	}
 
 	data := receivedData.Data
@@ -64,12 +65,12 @@ func decodeMessage(payload []byte) *observationData {
 		dataBytes = append(dataBytes, byte(value))
 	}
 
-	var bytesAsHexString []string
-	for _, dataByte := range dataBytes {
-		bytesAsHexString = append(bytesAsHexString, hex.EncodeToString([]byte{dataByte}))
+	if len(dataBytes) < 24 {
+		fmt.Println(fmt.Sprintf("Not enough bytes in message on %s", topic))
+		return nil
 	}
 
-	fmt.Println(bytesAsHexString)
+	//fmt.Println(bytesAsHexString)
 
 	return &observationData{
 		BirdClassId: int(binary.LittleEndian.Uint16(dataBytes[0:2])),

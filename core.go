@@ -4,44 +4,27 @@ import (
 	"crypto/tls"
 	"fmt"
 	MQTT "github.com/eclipse/paho.mqtt.golang"
-	"net"
 	"os"
 	"os/signal"
-	"sync"
 )
 
-func core(m *sync.Mutex, cons *[]*net.Conn, configPath string) {
+func core(configPath string) {
 	configData := readConfig(configPath)
 
-	sslConfig := &tls.Config{
-		InsecureSkipVerify: true,
-	}
-
-	opts := MQTT.NewClientOptions().AddBroker(fmt.Sprintf("ssl://%s:%d", configData.MqttHost, configData.MqttPort))
-	opts.SetClientID("BirdDBReader")
+	opts := MQTT.NewClientOptions().AddBroker(fmt.Sprintf("%s://%s:%d", configData.MqttProtocol, configData.MqttHost, configData.MqttPort))
+	//opts.SetClientID("BirdDBReader")
 	opts.SetUsername(configData.MqttUsername)
 	opts.SetPassword(configData.MqttPassword)
-	opts.SetTLSConfig(sslConfig)
-
-	mqttMessageHandler := func(client MQTT.Client, msg MQTT.Message) {
-		receivedData := decodeMessage(msg.Payload())
-		//fmt.Println(receivedData.toJSON())
-		writeData(receivedData, configData)
-
-		for i, conn := range *cons {
-			_, err := (*conn).Write([]byte(receivedData.toJSON()))
-			if err != nil {
-				m.Lock()
-				*cons = append((*cons)[0:i], (*cons)[i+1:len(*cons)]...)
-				fmt.Println("Remove listener")
-				m.Unlock()
-			}
+	if configData.MqttProtocol == "ssl" {
+		sslConfig := &tls.Config{
+			InsecureSkipVerify: true,
 		}
-
-		//os.Exit(-1)
+		opts.SetTLSConfig(sslConfig)
 	}
 
-	opts.SetDefaultPublishHandler(mqttMessageHandler)
+	opts.SetDefaultPublishHandler(func(client MQTT.Client, message MQTT.Message) {
+		fmt.Printf("Unhandled message: %s\n", string(message.Payload()))
+	})
 
 	// Create a new MQTT client
 	client := MQTT.NewClient(opts)
@@ -51,8 +34,24 @@ func core(m *sync.Mutex, cons *[]*net.Conn, configPath string) {
 	}
 
 	qos := 2
-	if token := client.Subscribe(configData.MqttTopic, byte(qos), mqttMessageHandler); token.Wait() && token.Error() != nil {
-		panic(token.Error())
+	for _, topics := range configData.MqttTopic {
+
+		mqttMessageHandler := func(client MQTT.Client, msg MQTT.Message) {
+			receivedData := decodeMessage(msg.Payload(), topics.Topic)
+			if receivedData == nil {
+				return
+			}
+			//fmt.Println(receivedData.toJSON())
+			writeData(receivedData, configData, topics.Bucket)
+
+			fmt.Println(receivedData.toJSON())
+
+			//os.Exit(-1)
+		}
+
+		if token := client.Subscribe(topics.Topic, byte(qos), mqttMessageHandler); token.Wait() && token.Error() != nil {
+			fmt.Println(token.Error())
+		}
 	}
 
 	signalChan := make(chan os.Signal, 1)
