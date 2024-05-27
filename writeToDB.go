@@ -7,7 +7,7 @@ import (
 	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
-func writeData(data *observationData, configData *config, bucket string) {
+func writeData(data *observationData, configData *config, bucket, topic string) {
 	token := configData.InfluxDBToken
 	url := configData.InfluxDBUrl
 	client := influxdb2.NewClient(url, token)
@@ -26,8 +26,8 @@ func writeData(data *observationData, configData *config, bucket string) {
 
 	dataPoint := write.NewPoint("BirdObservation", tags, fields, data.Timestamp)
 	if err := writeAPI.WritePoint(context.Background(), dataPoint); err != nil {
-		fmt.Println("WriteDB error", err)
+		fmt.Println(Red+"WriteDB error"+Reset, err)
 	} else {
-		fmt.Println("Data written successfully")
+		fmt.Println(fmt.Sprintf("%sData written successfully:%s %s -> %s %s", Green, Reset, topic, bucket, data.toJSON()))
 	}
 }

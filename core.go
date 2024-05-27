@@ -33,23 +33,11 @@ func core(configPath string) {
 		panic(token.Error())
 	}
 
-	qos := 2
-	for _, topics := range configData.MqttTopic {
+	qos := 1
+	for _, topic := range configData.MqttTopic {
+		mqttMessageHandler := genHandleFunc(topic.Topic, topic.Bucket, configData)
 
-		mqttMessageHandler := func(client MQTT.Client, msg MQTT.Message) {
-			receivedData := decodeMessage(msg.Payload(), topics.Topic)
-			if receivedData == nil {
-				return
-			}
-			//fmt.Println(receivedData.toJSON())
-			writeData(receivedData, configData, topics.Bucket)
-
-			fmt.Println(receivedData.toJSON())
-
-			//os.Exit(-1)
-		}
-
-		if token := client.Subscribe(topics.Topic, byte(qos), mqttMessageHandler); token.Wait() && token.Error() != nil {
+		if token := client.Subscribe(topic.Topic, byte(qos), mqttMessageHandler); token.Wait() && token.Error() != nil {
 			fmt.Println(token.Error())
 		}
 	}
@@ -60,5 +48,20 @@ func core(configPath string) {
 	// Infinite loop to receive MQTT messages
 	for {
 		// Add your message handling logic here
+	}
+}
+
+func genHandleFunc(topic, bucket string, configData *config) func(client MQTT.Client, msg MQTT.Message) {
+	return func(client MQTT.Client, msg MQTT.Message) {
+		receivedData := decodeMessage(msg.Payload(), topic)
+		if receivedData == nil {
+			return
+		}
+		//fmt.Println(receivedData.toJSON())
+		writeData(receivedData, configData, bucket, topic)
+
+		//fmt.Println(receivedData.toJSON())
+
+		//os.Exit(-1)
 	}
 }
